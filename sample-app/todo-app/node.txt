@@ -1,0 +1,8 @@
+Feature
+- add new item
+- toggle done/undone item
+- view done
+- view undone
+- ordering item
+- persist item
+- persist item online

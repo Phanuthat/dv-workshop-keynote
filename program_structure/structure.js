@@ -28,7 +28,7 @@ limit = 10; // VM702:1 Uncaught TypeError: Assignment to constant variable.
 // new package private protected public return static super
 // switch this throw true try typeof var void while with yield
 //
-// กลุ่มของ reserved work พวกนี้ที่เตรียมไว้ให้เราใช้เรียกว่า Environment
+// กลุ่มของ reserved word พวกนี้ที่เตรียมไว้ให้เราใช้เรียกว่า Environment
 // ซึ่งจริงๆ จะมีมากกว่านี้อีก ขึ้นอยู่กับ Environment ต่างๆ เช่น Browser ก็มี
 // keyword ที่เอาไว้สื่อสารกับ window หรือ document เป็นต้น
 // * ไม่ต้องจำนะครับ เพราะระบบมันจะป้องกันด้วยตัวของมันเองอยู่แล้ว เช่น assign ไม่ได้ หรือ อาจจะ error
