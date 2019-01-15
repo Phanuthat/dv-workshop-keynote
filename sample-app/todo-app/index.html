@@ -39,50 +39,77 @@
         const txt_new_item = document.getElementById('txt-new-item') 
         const ls_item = document.getElementById('list-item')
         const elem_mode = document.getElementById('mode')
-        let storage =  loadData()
-        let items = storage['items']
-        let modes = storage['modes']
-        let current_mode = storage.current_mode
-        let counter = storage.counter
+        const modes = ['all', 'undone', 'done']
+        const online = true
+        const request = (() => {
+            return (method, path, data) => {
+                return new Promise((resolve, reject) => {
+                    let xhr = new XMLHttpRequest()
+                    xhr.open(method, `http://localhost:3000${path}`, true)
+                    xhr.setRequestHeader('Content-Type', 'application/json')
+                    xhr.addEventListener('load', () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(JSON.parse(xhr.response))
+                        } else {
+                            reject('request to server failed.')
+                        }
+                    })
+                    xhr.addEventListener('error', () => {
+                        reject('request to server failed.')
+                    })
+                    xhr.send(JSON.stringify(data))
+                })
+            }
+        })()
 
-        txt_new_item.value = ''
-        txt_new_item.focus()
-        render()
+        let state = {}
 
-        form_todo.addEventListener('submit', function(event) {
+        if (online) {
+            request('GET', '/todos')
+            .then(set_state)
+            .catch(console.error)
+        } else {
+            set_state(localStorage.getItem('todo-app') || {})
+        }
+
+        reset_input()
+
+        form_todo.addEventListener('submit', (event) => {
             event.preventDefault()
             if (txt_new_item.value === '') return
-            items.push({ 
-                id: counter++,
+            state.items.push({ 
+                id: state.counter++,
                 text: txt_new_item.value, 
-                done: false 
+                done: false
             })
-            persist()
-            txt_new_item.value = ''
-            txt_new_item.focus()
-            render()
+            reset_input()
+            save_change(state)
         })
 
-        function loadData() {
-            let storage = localStorage.getItem('todo-app')
-            return storage ? JSON.parse(storage) : {
-                items: [],
-                modes: ['all', 'undone', 'done'],
-                current_mode: 'all',
-                counter: 0
+        function reset_input() {
+            txt_new_item.value = ''
+            txt_new_item.focus()
+        }
+        
+        function set_state(_state) {
+            state.items = _state.items || []
+            state.current_mode = _state.current_mode || 'all'
+            state.counter = _state.counter || 0
+            render(state)
+        }
+
+        function save_change(state) {
+            if (online) {
+                request('PUT', '/todos', state)
+                .then(set_state)
+                .catch(console.error)
+            } else {
+                localStorage.setItem('todo-app', JSON.stringify(state))
+                set_state(state)
             }
         }
 
-        function persist() {
-            localStorage.setItem('todo-app', JSON.stringify({
-                items: items,
-                modes: modes,
-                current_mode: current_mode,
-                counter: counter,
-            }))
-        }
-
-        function render() {
+        function render(state) {
             while (elem_mode.firstChild) {
                 elem_mode.removeChild(elem_mode.firstChild)
             }
@@ -92,86 +119,92 @@
 
             let dragged_item;
 
-            modes.map(function(mode) {
+            modes.map((mode) => {
                 let elem = document.createElement('span')
                 elem.textContent = mode
-                mode === current_mode && elem.classList.add('active')
+                mode === state.current_mode && elem.classList.add('active')
                 elem.addEventListener('click', function() {
-                    current_mode = mode
-                    persist()
-                    render()
+                    state.current_mode = mode
+                    save_change(state)
                 })
                 return elem
-            }).forEach(function(elem) {
-                elem_mode.appendChild(elem)
-            })
+            }).forEach((elem) => elem_mode.appendChild(elem))
 
-            items.filter(function(item) {
-                if (current_mode === "done") {
+            state.items.filter((item) => {
+                if (state.current_mode === "done") {
                     return item.done
-                } else if (current_mode === "undone") {
+                } else if (state.current_mode === "undone") {
                     return !item.done
                 } else {
                     return true
                 }            
-            }).map(function(item, index) {
+            }).map((item, index) => {
                 let elem = document.createElement('div')
                 item.done && elem.classList.add('done')
                 elem.setAttribute('draggable', true)
-                elem.addEventListener('dragstart', function() {
-                    dragged_item = item
-                })
-                elem.addEventListener('dragenter', function() {
+                elem.addEventListener('dragstart', () => (dragged_item = item))
+                elem.addEventListener('dragenter', (event) => {
+                    event.stopPropagation()
                     elem.classList.add('dragover')
                 })
-                elem.addEventListener('dragleave', function() {
+                elem.addEventListener('dragleave', (event) => {
+                    event.stopPropagation()
                     elem.classList.remove('dragover')
                 })
-                elem.addEventListener('dragover', function(event) {
+                elem.addEventListener('dragover', (event) => {
                     event.preventDefault()
                 })
-                elem.addEventListener('drop', function() {
+                elem.addEventListener('drop', () => {
                     elem.classList.remove('dragover')
-                    let current_index = items.findIndex(it => it.id === dragged_item.id)
-                    items.splice(current_index, 1)
-                    let insert_index = items.findIndex(it => it.id === item.id)
-                    items.splice(insert_index, 0, dragged_item)
-                    persist()
-                    render()
+                    
+                    let current_index = state.items.findIndex(it => it.id === dragged_item.id)
+                    state.items.splice(current_index, 1)
+                    
+                    let insert_index = state.items.findIndex(it => it.id === item.id)
+                    state.items.splice(insert_index, 0, dragged_item)
+                    
+                    save_change(state)
                 })
 
-                let check = document.createElement('input', )
-                check.setAttribute('type', 'checkbox')
-                check.checked = item.done
-                check.addEventListener('click', function() {
-                    target = items.find(it => it.id === item.id)
+                let checkbox = document.createElement('input', )
+                checkbox.setAttribute('type', 'checkbox')
+                checkbox.checked = item.done
+                checkbox.addEventListener('click', () => {
+                    target = state.items.find(it => it.id === item.id)
                     target.done = !target.done
-                    persist()
-                    render()
+                    save_change(state)
                 })
+
                 let text = document.createElement('span')
                 text.textContent = item.text
-                text.addEventListener('click', function() {
-                    target = items.find(it => it.id === item.id)
+                text.addEventListener('click', () => {
+                    target = state.items.find(it => it.id === item.id)
                     target.done = !target.done
-                    persist()
-                    render()
+                    save_change(state)
                 })
+                text.addEventListener('dragleave', (event) => {
+                    event.stopPropagation()
+                    elem.classList.remove('dragover')
+                })
+                text.addEventListener('dragover', (event) => {
+                    event.preventDefault()
+                })
+
                 let btn_delete = document.createElement('button')
-                btn_delete.addEventListener('click', function(event) {
-                    item_index = items.findIndex(it => it.id === item.id)
-                    items.splice(item_index, 1)
-                    persist()
-                    render()
+                btn_delete.textContent = 'delete'                
+                btn_delete.addEventListener('click', (event) => {
+                    item_index = state.items.findIndex(it => it.id === item.id)
+                    state.items.splice(item_index, 1)
+                    save_change(state)
                 })
-                btn_delete.innerText = 'delete'                
-                elem.appendChild(check)
+
+                elem.appendChild(checkbox)
                 elem.appendChild(text)
                 elem.appendChild(btn_delete)
+
                 return elem
-            }).forEach(function(elem) {
-                ls_item.appendChild(elem)
-            })
+
+            }).forEach((elem) => ls_item.appendChild(elem))
         }
     </script>
     <!-- <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>

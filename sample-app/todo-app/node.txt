@@ -4,5 +4,5 @@ Feature
 - view done
 - view undone
 - ordering item
-- persist item
+- persist item locally
 - persist item online
