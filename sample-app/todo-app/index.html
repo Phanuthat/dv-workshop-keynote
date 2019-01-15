@@ -6,6 +6,24 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Todo App</title>
     <!-- <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous"> -->
+    <style>
+        .done {
+            text-decoration: line-through;
+        }
+        #mode {
+            text-decoration: underline;
+        }
+        #mode > span {
+            margin-left: 5px;
+            cursor: pointer;
+        }
+        .active {
+            color: blue;
+        }
+        .dragover {
+            border-top: 1px solid blue;
+        }
+    </style>
 </head>
 <body>
     <div id="app">
@@ -13,41 +31,137 @@
             <input id="txt-new-item" type="text">
             <button type="submit">Add</button>
         </form>
+        <div id="mode"></div>
         <div id="list-item"></div>
-    </div>
-        </div>
     </div>
     <script>
         const form_todo = document.getElementById('form-todo')
         const txt_new_item = document.getElementById('txt-new-item') 
         const ls_item = document.getElementById('list-item')
-        const items = []
-    
+        const elem_mode = document.getElementById('mode')
+        let storage =  loadData()
+        let items = storage['items']
+        let modes = storage['modes']
+        let current_mode = storage.current_mode
+        let counter = storage.counter
+
+        txt_new_item.value = ''
         txt_new_item.focus()
+        render()
 
         form_todo.addEventListener('submit', function(event) {
             event.preventDefault()
             if (txt_new_item.value === '') return
-            items.push({ text: txt_new_item.value, done: false })
+            items.push({ 
+                id: counter++,
+                text: txt_new_item.value, 
+                done: false 
+            })
+            persist()
             txt_new_item.value = ''
             txt_new_item.focus()
             render()
         })
 
+        function loadData() {
+            let storage = localStorage.getItem('todo-app')
+            return storage ? JSON.parse(storage) : {
+                items: [],
+                modes: ['all', 'undone', 'done'],
+                current_mode: 'all',
+                counter: 0
+            }
+        }
+
+        function persist() {
+            localStorage.setItem('todo-app', JSON.stringify({
+                items: items,
+                modes: modes,
+                current_mode: current_mode,
+                counter: counter,
+            }))
+        }
+
         function render() {
+            while (elem_mode.firstChild) {
+                elem_mode.removeChild(elem_mode.firstChild)
+            }
             while (ls_item.firstChild) {
                 ls_item.removeChild(ls_item.firstChild)
             }
-            items.map(function(item, index) {
+
+            let dragged_item;
+
+            modes.map(function(mode) {
+                let elem = document.createElement('span')
+                elem.textContent = mode
+                mode === current_mode && elem.classList.add('active')
+                elem.addEventListener('click', function() {
+                    current_mode = mode
+                    persist()
+                    render()
+                })
+                return elem
+            }).forEach(function(elem) {
+                elem_mode.appendChild(elem)
+            })
+
+            items.filter(function(item) {
+                if (current_mode === "done") {
+                    return item.done
+                } else if (current_mode === "undone") {
+                    return !item.done
+                } else {
+                    return true
+                }            
+            }).map(function(item, index) {
                 let elem = document.createElement('div')
-                elem.id = `item-${index}`
+                item.done && elem.classList.add('done')
+                elem.setAttribute('draggable', true)
+                elem.addEventListener('dragstart', function() {
+                    dragged_item = item
+                })
+                elem.addEventListener('dragenter', function() {
+                    elem.classList.add('dragover')
+                })
+                elem.addEventListener('dragleave', function() {
+                    elem.classList.remove('dragover')
+                })
+                elem.addEventListener('dragover', function(event) {
+                    event.preventDefault()
+                })
+                elem.addEventListener('drop', function() {
+                    elem.classList.remove('dragover')
+                    let current_index = items.findIndex(it => it.id === dragged_item.id)
+                    items.splice(current_index, 1)
+                    let insert_index = items.findIndex(it => it.id === item.id)
+                    items.splice(insert_index, 0, dragged_item)
+                    persist()
+                    render()
+                })
+
                 let check = document.createElement('input', )
                 check.setAttribute('type', 'checkbox')
+                check.checked = item.done
+                check.addEventListener('click', function() {
+                    target = items.find(it => it.id === item.id)
+                    target.done = !target.done
+                    persist()
+                    render()
+                })
                 let text = document.createElement('span')
-                text.innerText = item.text
+                text.textContent = item.text
+                text.addEventListener('click', function() {
+                    target = items.find(it => it.id === item.id)
+                    target.done = !target.done
+                    persist()
+                    render()
+                })
                 let btn_delete = document.createElement('button')
-                btn_delete.addEventListener('click', function() {
-                    items.splice(index, 1)
+                btn_delete.addEventListener('click', function(event) {
+                    item_index = items.findIndex(it => it.id === item.id)
+                    items.splice(item_index, 1)
+                    persist()
                     render()
                 })
                 btn_delete.innerText = 'delete'                
@@ -59,7 +173,6 @@
                 ls_item.appendChild(elem)
             })
         }
-        
     </script>
     <!-- <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
