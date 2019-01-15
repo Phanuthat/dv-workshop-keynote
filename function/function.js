@@ -13,7 +13,8 @@ function square(x) {
 }
 
 // แบบนี้เรียก function expression
-function(){} // ซึ่งจะอยู่โดดๆ ไม่ได้ ต้องเอาไปแปะกับคนอื่น
+// ลอง uncomment บรรทัดล่างออก จะเห็นว่า error
+// function(){} // ซึ่งจะอยู่โดดๆ ไม่ได้ ต้องเอาไปแปะกับคนอื่น
 
 // แบบนี้เป็นต้น
 const makeNoise = function() {
